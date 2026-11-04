@@ -49,7 +49,7 @@ PlayerSettings:
   m_ActiveColorSpace: 1
   unsupportedMSAAFallback: 0
   m_SpriteBatchMaxVertexCount: 65535
-  m_SpriteBatchVertexThreshold: 300
+  m_SpriteBatchVertexThreshold: 2359
   m_MTRendering: 1
   mipStripping: 0
   numberOfMipsStripped: 0
@@ -621,7 +621,8 @@ PlayerSettings:
   webWasm2023: 0
   webEnableSubmoduleStrippingCompatibility: 0
   webProgressiveAssetLoading: 0
-  scriptingDefineSymbols: {}
+  scriptingDefineSymbols:
+    Standalone: SENTIS_ANALYTICS_ENABLED;APP_UI_EDITOR_ONLY
   additionalCompilerArguments: {}
   platformArchitecture: {}
   scriptingBackend:
@@ -719,7 +720,7 @@ PlayerSettings:
   qnxGraphicConfPath: 
   apiCompatibilityLevel: 6
   captureStartupLogs: {}
-  activeInputHandler: 1
+  activeInputHandler: 2
   windowsGamepadBackendHint: 0
   enableDirectStorage: 0
   cloudProjectId: 23624355-1e98-4939-91d6-4e8b8fb4e604

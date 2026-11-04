@@ -10,6 +10,9 @@ TagManager:
   - Semilla
   - Jugador
   - PowerUp
+  - Suelo
+  - Enemigo
+  - Meta
   layers:
   - Default
   - TransparentFX
