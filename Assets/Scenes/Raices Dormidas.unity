@@ -1079,13 +1079,37 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 575557000540426399, guid: fecad83e0f3414e469de61afc801ddb9, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 458037178}
   m_SourcePrefab: {fileID: 100100000, guid: fecad83e0f3414e469de61afc801ddb9, type: 3}
 --- !u!4 &458037176 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 4808350808950081437, guid: fecad83e0f3414e469de61afc801ddb9, type: 3}
   m_PrefabInstance: {fileID: 458037175}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &458037177 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 575557000540426399, guid: fecad83e0f3414e469de61afc801ddb9, type: 3}
+  m_PrefabInstance: {fileID: 458037175}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &458037178
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 458037177}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbe40ec327da50c4b98a62f5e52b689a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SemillasDelBosque.Nivel3.PatrullaSombra
+  xMinimo: 0
+  xMaximo: 0
+  velocidad: 1.8
+  voltearSprite: 1
 --- !u!1001 &476678756
 PrefabInstance:
   m_ObjectHideFlags: 0
