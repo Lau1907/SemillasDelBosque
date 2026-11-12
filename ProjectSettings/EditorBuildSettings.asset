@@ -6,14 +6,23 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/CuartoGris.unity
-    guid: 8c9cfa26abfee488c85f1582747f6a02
+    path: Assets/Scenes/MenuPrincipal.unity
+    guid: cf004b60cb8d5374c8cb1f8982b37994
   - enabled: 1
     path: Assets/Scenes/Claro del Despertar.unity
     guid: 4ae434b16d35b85418c38e1a1a7adad6
   - enabled: 1
+    path: Assets/Scenes/Bosque Profundo.unity
+    guid: 238e1f41da6a99c4f9709a2222a21ecf
+  - enabled: 1
     path: Assets/Scenes/Lago de las Luciernagas.unity
     guid: 6fc8c025714cffe4f88fd1159d7d2bbf
+  - enabled: 1
+    path: Assets/Scenes/Cima de los Recuerdos.unity
+    guid: 53d4c554b3b83174a8d2ca4c68544db3
+  - enabled: 1
+    path: Assets/Scenes/CuartoGris.unity
+    guid: 8c9cfa26abfee488c85f1582747f6a02
   m_configObjects:
     com.unity.dt.app-ui: {fileID: 11400000, guid: 1b1c20d82303e4b5781c3ef50ac1449f, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}

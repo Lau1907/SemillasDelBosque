@@ -1,8 +1,11 @@
 using UnityEngine;
-using SemillasDelBosque.Audio;
+using UnityEngine.UI;
+using SemillasDelBosque.Sistema;
+using SemillasDelBosque.UI;
 
 #if UNITY_EDITOR
 using UnityEditor;
+using UnityEditor.SceneManagement;
 #endif
 
 namespace SemillasDelBosque.Audio
@@ -37,6 +40,24 @@ namespace SemillasDelBosque.Audio
             }
 
             audioSource.playOnAwake = false;
+
+            // Garantizar que BotonReiniciar recargue siempre la escena actual y no el Nivel 3
+            AsegurarBotonReiniciarActual();
+        }
+
+        private void AsegurarBotonReiniciarActual()
+        {
+            Button[] botones = GetComponentsInChildren<Button>(true);
+            for (int i = 0; i < botones.Length; i++)
+            {
+                if (botones[i] != null && botones[i].gameObject.name.Contains("Reiniciar"))
+                {
+                    if (botones[i].GetComponent<BotonReiniciarNivel>() == null)
+                    {
+                        botones[i].gameObject.AddComponent<BotonReiniciarNivel>();
+                    }
+                }
+            }
         }
 
         private void OnEnable()
@@ -66,24 +87,13 @@ namespace SemillasDelBosque.Audio
 
         private int ObtenerVidas()
         {
-            try
-            {
-                if (Unity.VisualScripting.Variables.ActiveScene != null)
-                {
-                    return Unity.VisualScripting.Variables.ActiveScene.Get<int>("vidas");
-                }
-            }
-            catch
-            {
-                // En modo edición o variables no listas
-            }
-            return 3;
+            return UtilidadesJugador.LeerVariableEscena("vidas", 3);
         }
 
         private void EjecutarGameOverAudio()
         {
             yaReproducido = true;
-            Debug.Log("[GameOverAudio] Luna se ha quedado sin vidas (0). Reproduciendo gameover.wav y pausando música...");
+            Debug.Log("[GameOverAudio] Jugador sin vidas (0). Reproduciendo gameover.wav y pausando música...");
 
             // 1. Pausar la música de fondo del GestorMusica
             if (GestorMusica.Instancia != null)
@@ -95,10 +105,11 @@ namespace SemillasDelBosque.Audio
                 }
             }
 
-            // 2. Reproducir el clip de Game Over
+            // 2. Reproducir el clip de Game Over una única vez
             if (clipGameOver != null && audioSource != null)
             {
-                audioSource.PlayOneShot(clipGameOver);
+                float vol = GestorJuego.Instancia != null ? GestorJuego.Instancia.VolumenSFX : 1f;
+                audioSource.PlayOneShot(clipGameOver, vol);
             }
         }
 
@@ -130,6 +141,7 @@ namespace SemillasDelBosque.Audio
             ConfigurarClip(audio);
 
             EditorUtility.SetDirty(canvas.gameObject);
+            EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
             Selection.activeGameObject = canvas.gameObject;
             Debug.Log("[GameOverAudio] ¡GameOverAudio agregado y enlazado con gameover.wav con éxito!");
         }
