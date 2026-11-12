@@ -1,7 +1,9 @@
 using UnityEngine;
+using SemillasDelBosque.Sistema;
 
 #if UNITY_EDITOR
 using UnityEditor;
+using UnityEditor.SceneManagement;
 #endif
 
 namespace SemillasDelBosque.Nivel
@@ -24,31 +26,18 @@ namespace SemillasDelBosque.Nivel
 
         private bool EsLuna(Collider2D col)
         {
-            return col.CompareTag("Luna") || col.CompareTag("Jugador") || col.gameObject.name == "Luna";
+            return UtilidadesJugador.EsJugador(col);
         }
 
         private void ReaparecerJugador(GameObject luna)
         {
-            Vector3 destinoCheckpoint = Vector3.zero;
-            bool checkpointValido = false;
+            Vector3 destinoCheckpoint = UtilidadesJugador.LeerVariableEscena("ultimoCheckpoint", Vector3.zero);
+            bool checkpointValido = destinoCheckpoint != Vector3.zero;
 
-            try
+            // Si el checkpoint está en (0,0,0) y no se ha tocado ninguno, usar posición inicial típica
+            if (!checkpointValido)
             {
-                if (Unity.VisualScripting.Variables.ActiveScene != null)
-                {
-                    destinoCheckpoint = Unity.VisualScripting.Variables.ActiveScene.Get<Vector3>("ultimoCheckpoint");
-                    checkpointValido = true;
-                }
-            }
-            catch (System.Exception ex)
-            {
-                Debug.LogWarning($"[ZonaCaida] No se pudo leer 'ultimoCheckpoint' de Visual Scripting: {ex.Message}");
-            }
-
-            // Si el checkpoint está en (0,0,0) y no se ha tocado ninguno, buscar la posición inicial o inicio del nivel
-            if (!checkpointValido || destinoCheckpoint == Vector3.zero)
-            {
-                destinoCheckpoint = new Vector3(2f, 1f, 0f); // Posición inicial típica de Luna
+                destinoCheckpoint = new Vector3(2f, 1f, 0f);
             }
 
             Debug.Log($"[ZonaCaida] Luna cayó al abismo. Reapareciendo en checkpoint: {destinoCheckpoint}");
@@ -98,6 +87,7 @@ namespace SemillasDelBosque.Nivel
             goZona.AddComponent<ZonaCaida>();
 
             EditorUtility.SetDirty(goZona);
+            EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
             Selection.activeGameObject = goZona;
             Debug.Log("[ZonaCaida] ¡Zona de caída creada exitosamente en (54, -9, 0) con tamaño (200, 6)!");
         }

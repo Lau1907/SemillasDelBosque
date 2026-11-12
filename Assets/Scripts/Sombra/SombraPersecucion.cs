@@ -1,6 +1,8 @@
+using System.Collections;
 using UnityEngine;
 using SemillasDelBosque.Nivel3;
 using SemillasDelBosque.Audio;
+using SemillasDelBosque.Sistema;
 
 namespace SemillasDelBosque.Sombra
 {
@@ -24,11 +26,24 @@ namespace SemillasDelBosque.Sombra
         }
 
         [Header("Distancias de Detección (Histéresis)")]
-        [Tooltip("Distancia hacia Luna para iniciar la persecución.")]
-        [SerializeField] private float distanciaDeteccion = 6f;
+        [Tooltip("Distancia hacia Nahui/Luna para iniciar la persecución.")]
+        [SerializeField] private float distanciaDeteccion = 4.8f;
 
-        [Tooltip("Distancia hacia Luna para perderla de vista y volver a patrullar.")]
-        [SerializeField] private float distanciaPerdida = 9f;
+        [Tooltip("Distancia hacia Nahui/Luna para perderla de vista y volver a patrullar.")]
+        [SerializeField] private float distanciaPerdida = 7.0f;
+
+        [Tooltip("Diferencia máxima en Y para detectar al jugador; si está en una plataforma elevada, la sombra sigue su ruta.")]
+        [SerializeField] private float alturaMaximaDeteccion = 2.0f;
+
+        [Header("Flujo de Camino y Enfriamiento")]
+        [Tooltip("Si está desactivado, la sombra mantiene su recorrido de patrulla fluido sin abalanzarse sobre el jugador.")]
+        [SerializeField] private bool perseguirAlJugador = false;
+
+        [Tooltip("Duración máxima de una embestida de persecución antes de retomar el recorrido normal.")]
+        [SerializeField] private float tiempoMaximoPersecucion = 2.6f;
+
+        [Tooltip("Tiempo de enfriamiento tras perseguir durante el cual la sombra fluye en su patrulla.")]
+        [SerializeField] private float tiempoEnfriamiento = 2.8f;
 
         [Header("Velocidades")]
         [Tooltip("Velocidad de patrulla habitual (sincronizada con PatrullaSombra).")]
@@ -36,6 +51,13 @@ namespace SemillasDelBosque.Sombra
 
         [Tooltip("Velocidad de desplazamiento horizontal durante la persecución.")]
         [SerializeField] private float velocidadPersecucion = 3.2f;
+
+        [Header("Combate y Golpes")]
+        [Tooltip("Golpes sobre la cabeza necesarios para derrotar a esta sombra.")]
+        [SerializeField] private int vidaMaxima = 2;
+
+        [SerializeField] private float fuerzaReboteJugador = 10.5f;
+        [SerializeField] private AudioClip clipDano;
 
         [Header("Efectos de Audio")]
         [Tooltip("AudioClip 'sombra' que suena como alerta al iniciar la persecución.")]
@@ -68,9 +90,21 @@ namespace SemillasDelBosque.Sombra
         // Referencia al transform del jugador
         private Transform jugadorTransform;
 
+        // Combate
+        private int vidaActual;
+        private bool estaDerrotada = false;
+        private bool invulnerableGolpe = false;
+        private SombraDanioContacto contactoDanio;
+        private Collider2D colliderCabeza;
+
         // Estado actual de la máquina de estados
         private EstadoSombra estadoActual = EstadoSombra.Patrulla;
         private bool estaPersiguiendo = false;
+        private float tiempoEnPersecucion = 0f;
+        private float tiempoEnBorde = 0f;
+        private float enfriamientoRestante = 0f;
+        private Vector3 ultimaPosJugador;
+        private bool tieneUltimaPosJugador = false;
         private Color colorOriginal = Color.white;
 
         // Parámetro de animación
@@ -88,6 +122,7 @@ namespace SemillasDelBosque.Sombra
         public float VelocidadPatrulla { get => velocidadPatrulla; set => velocidadPatrulla = value; }
         public float VelocidadPersecucion { get => velocidadPersecucion; set => velocidadPersecucion = value; }
         public AudioClip ClipAlerta { get => clipAlerta; set => clipAlerta = value; }
+        public AudioClip ClipDano { get => clipDano; set => clipDano = value; }
         public Sprite SpritePatrulla { get => spritePatrulla; set => spritePatrulla = value; }
         public Sprite SpritePersecucion { get => spritePersecucion; set => spritePersecucion = value; }
 
@@ -133,8 +168,67 @@ namespace SemillasDelBosque.Sombra
                 }
             }
 
+            // Configurar hitboxes de combate (stomp arriba + medio corazón con empuje en el cuerpo)
+            ConfigurarCombateYHitboxes();
+
             // Inicializar y sincronizar límites desde PatrullaSombra
             ActualizarLimitesDesdePatrulla();
+            vidaActual = vidaMaxima;
+        }
+
+        private void ConfigurarCombateYHitboxes()
+        {
+            // Para recibir triggers de los hijos y rebotar a Nahui sin teletransporte instantáneo de LunaGraph
+            Rigidbody2D rbLocal = GetComponent<Rigidbody2D>();
+            if (rbLocal == null) rbLocal = gameObject.AddComponent<Rigidbody2D>();
+            rbLocal.bodyType = RigidbodyType2D.Kinematic;
+            rbLocal.useFullKinematicContacts = true;
+
+            gameObject.tag = "Untagged";
+
+            BoxCollider2D colPadre = GetComponent<BoxCollider2D>();
+            if (colPadre != null) colPadre.enabled = false;
+
+            // Hijo 1: CuerpoDanio (medio corazón + empuje)
+            Transform tCuerpo = transform.Find("CuerpoDanio");
+            GameObject goCuerpo;
+            if (tCuerpo == null)
+            {
+                goCuerpo = new GameObject("CuerpoDanio");
+                goCuerpo.transform.SetParent(transform, false);
+                goCuerpo.transform.localPosition = new Vector3(0f, -0.10f, 0f);
+                BoxCollider2D colCuerpo = goCuerpo.AddComponent<BoxCollider2D>();
+                colCuerpo.isTrigger = true;
+                colCuerpo.size = new Vector2(0.76f, 0.52f);
+            }
+            else
+            {
+                goCuerpo = tCuerpo.gameObject;
+            }
+            goCuerpo.tag = "Untagged";
+            contactoDanio = goCuerpo.GetComponent<SombraDanioContacto>();
+            if (contactoDanio == null) contactoDanio = goCuerpo.AddComponent<SombraDanioContacto>();
+            contactoDanio.Configurar(1, 8.2f, 6.2f);
+
+            // Hijo 2: CabezaPuntoDebil (saltar encima para golpear)
+            Transform tCabeza = transform.Find("CabezaPuntoDebil");
+            GameObject goCabeza;
+            if (tCabeza == null)
+            {
+                goCabeza = new GameObject("CabezaPuntoDebil");
+                goCabeza.transform.SetParent(transform, false);
+                goCabeza.transform.localPosition = new Vector3(0f, 0.34f, 0f);
+                BoxCollider2D colCab = goCabeza.AddComponent<BoxCollider2D>();
+                colCab.isTrigger = true;
+                colCab.size = new Vector2(0.95f, 0.38f);
+                colliderCabeza = colCab;
+            }
+            else
+            {
+                goCabeza = tCabeza.gameObject;
+                colliderCabeza = goCabeza.GetComponent<Collider2D>();
+            }
+            goCabeza.tag = "Untagged";
         }
 
         private void Start()
@@ -153,68 +247,223 @@ namespace SemillasDelBosque.Sombra
 
         private void Update()
         {
+            if (estaDerrotada) return;
+
             // Si no tenemos al jugador (o reapareció), intentar localizarlo
             if (jugadorTransform == null)
             {
                 BuscarJugador();
                 if (jugadorTransform == null) return;
+                ultimaPosJugador = jugadorTransform.position;
+                tieneUltimaPosJugador = true;
             }
 
-            // Medir distancia en 2D hacia Luna
+            if (enfriamientoRestante > 0f)
+            {
+                enfriamientoRestante -= Time.deltaTime;
+            }
+
+            // Si el jugador fue teletransportado (checkpoint o daño), retomar patrulla de inmediato
+            if (tieneUltimaPosJugador && Vector2.Distance(jugadorTransform.position, ultimaPosJugador) > 3.5f)
+            {
+                ultimaPosJugador = jugadorTransform.position;
+                if (estadoActual == EstadoSombra.Persecucion)
+                {
+                    CambiarEstado(EstadoSombra.Patrulla);
+                    enfriamientoRestante = tiempoEnfriamiento;
+                    return;
+                }
+            }
+            ultimaPosJugador = jugadorTransform.position;
+            tieneUltimaPosJugador = true;
+
+            // Medir distancia en 2D y diferencia vertical
             float distancia = Vector2.Distance(transform.position, jugadorTransform.position);
+            float difY = Mathf.Abs(jugadorTransform.position.y - transform.position.y);
 
             // Ejecutar lógica según el estado activo
             if (estadoActual == EstadoSombra.Patrulla)
             {
-                ActualizarPatrulla(distancia);
+                ActualizarPatrulla(distancia, difY);
             }
             else if (estadoActual == EstadoSombra.Persecucion)
             {
-                ActualizarPersecucion(distancia);
+                ActualizarPersecucion(distancia, difY);
             }
         }
 
-        /// <summary>
-        /// Comprueba si Luna ha entrado en el radio de detección para comenzar a perseguir.
-        /// </summary>
-        private void ActualizarPatrulla(float distancia)
+        private void OnTriggerEnter2D(Collider2D other)
         {
-            if (distancia < distanciaDeteccion)
+            if (estaDerrotada || invulnerableGolpe) return;
+            if (!UtilidadesJugador.EsJugador(other)) return;
+
+            Rigidbody2D rbJugador = other.attachedRigidbody != null
+                ? other.attachedRigidbody
+                : other.GetComponent<Rigidbody2D>();
+
+            float vy = 0f;
+            if (rbJugador != null)
+            {
+#if UNITY_6000_0_OR_NEWER
+                vy = rbJugador.linearVelocity.y;
+#else
+                vy = rbJugador.velocity.y;
+#endif
+            }
+
+            float umbralCabeza = colliderCabeza != null
+                ? colliderCabeza.bounds.min.y - 0.12f
+                : transform.position.y + 0.12f;
+
+            if (other.transform.position.y >= umbralCabeza && vy <= 0.8f)
+            {
+                if (rbJugador != null)
+                {
+#if UNITY_6000_0_OR_NEWER
+                    rbJugador.linearVelocity = new Vector2(rbJugador.linearVelocity.x, fuerzaReboteJugador);
+#else
+                    rbJugador.velocity = new Vector2(rbJugador.velocity.x, fuerzaReboteJugador);
+#endif
+                }
+
+                if (contactoDanio != null)
+                {
+                    contactoDanio.PausarDanio(0.55f);
+                }
+
+                RecibirGolpeEnCabeza();
+            }
+        }
+
+        private void RecibirGolpeEnCabeza()
+        {
+            vidaActual = Mathf.Max(0, vidaActual - 1);
+
+            if (audioSource != null)
+            {
+                AudioClip sonido = clipDano != null ? clipDano : clipAlerta;
+                if (sonido != null) audioSource.PlayOneShot(sonido, volumenAlerta);
+            }
+
+            if (vidaActual <= 0)
+            {
+                StartCoroutine(CorrutinaDerrotaSombra());
+            }
+            else
+            {
+                StartCoroutine(CorrutinaParpadeoGolpe());
+            }
+        }
+
+        private IEnumerator CorrutinaParpadeoGolpe()
+        {
+            invulnerableGolpe = true;
+            if (spriteRenderer != null) spriteRenderer.color = new Color(1f, 0.35f, 0.35f, 0.9f);
+            yield return new WaitForSeconds(0.18f);
+            if (spriteRenderer != null && !estaDerrotada) spriteRenderer.color = colorOriginal;
+            yield return new WaitForSeconds(0.22f);
+            invulnerableGolpe = false;
+        }
+
+        private IEnumerator CorrutinaDerrotaSombra()
+        {
+            estaDerrotada = true;
+            invulnerableGolpe = true;
+
+            if (patrullaSombra != null) patrullaSombra.enabled = false;
+            if (contactoDanio != null) contactoDanio.gameObject.SetActive(false);
+            if (colliderCabeza != null) colliderCabeza.enabled = false;
+
+            if (estaPersiguiendo)
+            {
+                estaPersiguiendo = false;
+                GestorMusica gestor = ObtenerGestorMusica();
+                if (gestor != null) gestor.SalirPersecucion();
+            }
+
+            float t = 0f;
+            float duracion = 0.35f;
+            Vector3 escalaIni = transform.localScale;
+            while (t < duracion)
+            {
+                t += Time.deltaTime;
+                float p = Mathf.Clamp01(t / duracion);
+                transform.localScale = Vector3.Lerp(escalaIni, Vector3.zero, p);
+                yield return null;
+            }
+
+            gameObject.SetActive(false);
+        }
+
+        /// <summary>
+        /// Comprueba si el jugador está al mismo nivel y dentro del radio (sin enfriamiento activo).
+        /// </summary>
+        private void ActualizarPatrulla(float distancia, float difY)
+        {
+            if (enfriamientoRestante <= 0f && difY <= alturaMaximaDeteccion && distancia < distanciaDeteccion)
             {
                 CambiarEstado(EstadoSombra.Persecucion);
             }
         }
 
         /// <summary>
-        /// Mueve a la sombra hacia Luna solo en X dentro de sus límites y verifica la histéresis.
+        /// En modo flujo de camino (perseguirAlJugador == false), mantiene PatrullaSombra activa mientras muestra alerta.
+        /// En modo persecución activa, realiza una embestida acotada y luego retoma su patrulla.
         /// </summary>
-        private void ActualizarPersecucion(float distancia)
+        private void ActualizarPersecucion(float distancia, float difY)
         {
-            // Histéresis: Si Luna se aleja más de distanciaPerdida, volver a patrulla
-            if (distancia > distanciaPerdida)
+            if (distancia > distanciaPerdida || difY > alturaMaximaDeteccion + 0.6f)
             {
                 CambiarEstado(EstadoSombra.Patrulla);
+                enfriamientoRestante = tiempoEnfriamiento;
                 return;
             }
 
-            // Calcular diferencia en el eje X
+            // Modo flujo de camino: alerta visual y musical sin abalanzarse ni bloquear al jugador
+            if (!perseguirAlJugador)
+            {
+                return;
+            }
+
+            tiempoEnPersecucion += Time.deltaTime;
+            if (tiempoEnPersecucion >= tiempoMaximoPersecucion)
+            {
+                CambiarEstado(EstadoSombra.Patrulla);
+                enfriamientoRestante = tiempoEnfriamiento;
+                return;
+            }
+
             float diferenciaX = jugadorTransform.position.x - transform.position.x;
 
-            // Zona muerta pequeña para evitar vibración cuando Luna está alineada verticalmente
-            if (Mathf.Abs(diferenciaX) > 0.05f)
+            if (Mathf.Abs(diferenciaX) > 0.1f)
             {
                 float direccionX = Mathf.Sign(diferenciaX);
                 float paso = direccionX * velocidadPersecucion * Time.deltaTime;
 
                 ActualizarLimitesDesdePatrulla();
-                float nuevaX = Mathf.Clamp(transform.position.x + paso, limiteMinX, limiteMaxX);
-
+                float prevX = transform.position.x;
+                float nuevaX = Mathf.Clamp(prevX + paso, limiteMinX, limiteMaxX);
                 transform.position = new Vector3(nuevaX, transform.position.y, transform.position.z);
 
-                // Voltear sprite: flipX = true mirando a la derecha (idéntico a PatrullaSombra)
                 if (spriteRenderer != null)
                 {
-                    spriteRenderer.flipX = direccionX > 0;
+                    // El spritesheet mira hacia la derecha por defecto
+                    spriteRenderer.flipX = direccionX < 0f;
+                }
+
+                // Si lleva tiempo atascada contra el límite de su plataforma, retoma la patrulla hacia el otro lado
+                if (Mathf.Abs(nuevaX - prevX) < 0.001f)
+                {
+                    tiempoEnBorde += Time.deltaTime;
+                    if (tiempoEnBorde >= 0.65f)
+                    {
+                        CambiarEstado(EstadoSombra.Patrulla);
+                        enfriamientoRestante = tiempoEnfriamiento;
+                    }
+                }
+                else
+                {
+                    tiempoEnBorde = 0f;
                 }
             }
         }
@@ -231,9 +480,11 @@ namespace SemillasDelBosque.Sombra
                 if (!estaPersiguiendo)
                 {
                     estaPersiguiendo = true;
+                    tiempoEnPersecucion = 0f;
+                    tiempoEnBorde = 0f;
 
-                    // 1. Pausar el script de patrulla para que no interfiera con el movimiento
-                    if (patrullaSombra != null)
+                    // 1. Solo pausar la patrulla si está habilitada la persecución directa sobre el jugador
+                    if (patrullaSombra != null && perseguirAlJugador)
                     {
                         patrullaSombra.enabled = false;
                     }
@@ -336,42 +587,16 @@ namespace SemillasDelBosque.Sombra
         }
 
         /// <summary>
-        /// Busca al jugador soportando Tag "Luna" (Nivel 1), Tag "Jugador" (Nivel 3) o Nombre "Luna".
+        /// Busca al jugador soportando Tags "Jugador", "Luna", "Nahui" y nombres "Luna"/"Nahui".
         /// </summary>
         private Transform BuscarJugador()
         {
-            // 1. Tag "Luna"
-            try
+            GameObject encontrado = UtilidadesJugador.BuscarJugador();
+            if (encontrado != null)
             {
-                GameObject objLuna = GameObject.FindWithTag("Luna");
-                if (objLuna != null)
-                {
-                    jugadorTransform = objLuna.transform;
-                    return jugadorTransform;
-                }
-            }
-            catch {}
-
-            // 2. Tag "Jugador"
-            try
-            {
-                GameObject objJugador = GameObject.FindWithTag("Jugador");
-                if (objJugador != null)
-                {
-                    jugadorTransform = objJugador.transform;
-                    return jugadorTransform;
-                }
-            }
-            catch {}
-
-            // 3. Nombre del objeto "Luna"
-            GameObject objPorNombre = GameObject.Find("Luna");
-            if (objPorNombre != null)
-            {
-                jugadorTransform = objPorNombre.transform;
+                jugadorTransform = encontrado.transform;
                 return jugadorTransform;
             }
-
             return null;
         }
 

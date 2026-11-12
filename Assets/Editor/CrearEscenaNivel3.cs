@@ -17,7 +17,7 @@ namespace SemillasDelBosque.EditorTools
         private const string RUTA_ESCENA_ORIGEN = "Assets/Scenes/Claro del Despertar.unity";
         private const string RUTA_ESCENA_DESTINO = "Assets/Scenes/Lago de las Luciernagas.unity";
 
-        [MenuItem("Semillas del Bosque/1. Crear escena Nivel 3", false, 1)]
+        [MenuItem("Semillas del Bosque/3a. Crear Escena Nivel 3 (Lago de las Luciernagas)", false, 30)]
         public static void CrearEscena()
         {
             // 1. Validar que la escena base del Nivel 1 exista
@@ -139,7 +139,7 @@ namespace SemillasDelBosque.EditorTools
 
         private static bool EsLuna(GameObject go)
         {
-            return go.name == "Luna" || go.tag == "Jugador" || go.tag == "Luna";
+            return UtilidadesEditorNiveles.EsObjetoJugador(go);
         }
     }
 }

@@ -1,9 +1,10 @@
 using UnityEngine;
 using TMPro;
-using System.Linq;
+using SemillasDelBosque.Sistema;
 
 #if UNITY_EDITOR
 using UnityEditor;
+using UnityEditor.SceneManagement;
 #endif
 
 namespace SemillasDelBosque.UI
@@ -44,30 +45,12 @@ namespace SemillasDelBosque.UI
 
         public void CalcularTotalSemillas()
         {
-            var todas = FindObjectsByType<GameObject>(FindObjectsInactive.Include);
-            totalSemillas = todas.Count(go => go.name.StartsWith("SemillaDeLuz") && go.scene == gameObject.scene);
-
-            if (totalSemillas == 0)
-            {
-                var porTag = GameObject.FindGameObjectsWithTag("Semilla");
-                totalSemillas = porTag.Count(go => go.scene == gameObject.scene);
-            }
+            totalSemillas = UtilidadesJugador.ContarSemillasEnEscena(gameObject.scene);
         }
 
         public void ActualizarTexto()
         {
-            int semillas = 0;
-            try
-            {
-                if (Unity.VisualScripting.Variables.ActiveScene != null)
-                {
-                    semillas = Unity.VisualScripting.Variables.ActiveScene.Get<int>("semillas");
-                }
-            }
-            catch
-            {
-                // Modo edición o variables no listas
-            }
+            int semillas = UtilidadesJugador.LeerVariableEscena("semillas", 0);
 
             if (textoSemillas != null)
             {
@@ -135,6 +118,7 @@ namespace SemillasDelBosque.UI
             resumen.ActualizarTexto();
 
             EditorUtility.SetDirty(panelCompleto.gameObject);
+            EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
             Selection.activeGameObject = panelCompleto.gameObject;
             Debug.Log("[ResumenNivel] ¡Resumen de nivel configurado con éxito en PanelNivelCompleto!");
         }

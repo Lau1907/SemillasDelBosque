@@ -1,7 +1,8 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
-using System.Linq;
+using SemillasDelBosque.Jugador;
+using SemillasDelBosque.Sistema;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -31,17 +32,32 @@ namespace SemillasDelBosque.UI
         [Tooltip("Sprite de corazón lleno.")]
         [SerializeField] private Sprite spriteCorazonLleno;
 
+        [Tooltip("Sprite de medio corazón.")]
+        [SerializeField] private Sprite spriteCorazonMedio;
+
         [Tooltip("Sprite de corazón vacío.")]
         [SerializeField] private Sprite spriteCorazonVacio;
 
         [Header("Datos del Nivel")]
         [SerializeField] private int totalSemillas = 0;
 
+        [Header("Indicador de Poder (Opcional)")]
+        [SerializeField] private GameObject indicadorDobleSalto;
+
         // Cache para comprobar cambios y evitar recalcular cada frame
         private int ultimasSemillas = -1;
-        private int ultimasVidas = -1;
+        private int ultimosMediosCorazones = -1;
+        private bool ultimoDobleSalto = false;
+        private SistemaVidaJugador vidaJugadorCache;
 
         public int TotalSemillas => totalSemillas;
+        public TextMeshProUGUI TextoSemillas { get => textoSemillas; set => textoSemillas = value; }
+        public Image ImagenSemilla { get => imagenSemilla; set => imagenSemilla = value; }
+        public Image[] ImagenesCorazones { get => imagenesCorazones; set => imagenesCorazones = value; }
+        public Sprite SpriteCorazonLleno { get => spriteCorazonLleno; set => spriteCorazonLleno = value; }
+        public Sprite SpriteCorazonMedio { get => spriteCorazonMedio; set => spriteCorazonMedio = value; }
+        public Sprite SpriteCorazonVacio { get => spriteCorazonVacio; set => spriteCorazonVacio = value; }
+        public GameObject IndicadorDobleSalto { get => indicadorDobleSalto; set => indicadorDobleSalto = value; }
 
         private void Start()
         {
@@ -56,19 +72,11 @@ namespace SemillasDelBosque.UI
         }
 
         /// <summary>
-        /// Cuenta todas las semillas de la escena activa por nombre que comience con 'SemillaDeLuz'
+        /// Cuenta todas las semillas de la escena activa por nombre que comience con 'SemillaDeLuz' o tag 'Semilla'.
         /// </summary>
         public void CalcularTotalSemillas()
         {
-            var todas = FindObjectsByType<GameObject>(FindObjectsInactive.Include);
-            totalSemillas = todas.Count(go => go.name.StartsWith("SemillaDeLuz") && go.scene == gameObject.scene);
-            
-            // Si por alguna razón no encontró por nombre, intenta por tag "Semilla"
-            if (totalSemillas == 0)
-            {
-                var porTag = GameObject.FindGameObjectsWithTag("Semilla");
-                totalSemillas = porTag.Count(go => go.scene == gameObject.scene);
-            }
+            totalSemillas = UtilidadesJugador.ContarSemillasEnEscena(gameObject.scene);
         }
 
         /// <summary>
@@ -76,30 +84,31 @@ namespace SemillasDelBosque.UI
         /// </summary>
         public void ActualizarHUD(bool forzar = false)
         {
-            int semillasActuales = 0;
-            int vidasActuales = 3;
+            int semillasActuales = UtilidadesJugador.LeerVariableEscena("semillas", 0);
+            int vidasActuales = UtilidadesJugador.LeerVariableEscena("vidas", 3);
+            bool tieneDobleSalto = UtilidadesJugador.LeerVariableEscena("tieneDobleSalto", false);
 
-            try
+            if (vidaJugadorCache == null && Application.isPlaying)
             {
-                if (Unity.VisualScripting.Variables.ActiveScene != null)
-                {
-                    semillasActuales = Unity.VisualScripting.Variables.ActiveScene.Get<int>("semillas");
-                    vidasActuales = Unity.VisualScripting.Variables.ActiveScene.Get<int>("vidas");
-                }
+                vidaJugadorCache = FindAnyObjectByType<SistemaVidaJugador>();
             }
-            catch
-            {
-                // En modo edición o si la escena no tiene variables inicializadas aún
-            }
+
+            int mediosActuales = (vidaJugadorCache != null)
+                ? vidaJugadorCache.MediosCorazones
+                : Mathf.Clamp(vidasActuales, 0, 3) * 2;
 
             // Comprobación barata: solo actualizar componentes gráficos si hubo un cambio
-            if (!forzar && semillasActuales == ultimasSemillas && vidasActuales == ultimasVidas)
+            if (!forzar &&
+                semillasActuales == ultimasSemillas &&
+                mediosActuales == ultimosMediosCorazones &&
+                tieneDobleSalto == ultimoDobleSalto)
             {
                 return;
             }
 
             ultimasSemillas = semillasActuales;
-            ultimasVidas = vidasActuales;
+            ultimosMediosCorazones = mediosActuales;
+            ultimoDobleSalto = tieneDobleSalto;
 
             // 1. Actualizar texto de semillas
             if (textoSemillas != null)
@@ -107,17 +116,35 @@ namespace SemillasDelBosque.UI
                 textoSemillas.text = $"{semillasActuales} / {totalSemillas}";
             }
 
-            // 2. Actualizar fila de corazones
+            // 2. Actualizar fila de corazones (soportando medios corazones)
             if (imagenesCorazones != null)
             {
                 for (int i = 0; i < imagenesCorazones.Length; i++)
                 {
                     if (imagenesCorazones[i] == null) continue;
 
-                    // Si el índice es menor que las vidas actuales, el corazón está lleno
-                    bool lleno = (i < vidasActuales);
-                    imagenesCorazones[i].sprite = lleno ? spriteCorazonLleno : spriteCorazonVacio;
+                    int umbralLleno = (i + 1) * 2;
+                    int umbralMedio = i * 2 + 1;
+
+                    if (mediosActuales >= umbralLleno)
+                    {
+                        imagenesCorazones[i].sprite = spriteCorazonLleno;
+                    }
+                    else if (mediosActuales == umbralMedio && spriteCorazonMedio != null)
+                    {
+                        imagenesCorazones[i].sprite = spriteCorazonMedio;
+                    }
+                    else
+                    {
+                        imagenesCorazones[i].sprite = spriteCorazonVacio;
+                    }
                 }
+            }
+
+            // 3. Actualizar indicador de Doble Salto si está asignado
+            if (indicadorDobleSalto != null)
+            {
+                indicadorDobleSalto.SetActive(tieneDobleSalto);
             }
         }
 
@@ -143,10 +170,14 @@ namespace SemillasDelBosque.UI
 
             Debug.Log("[HudJuego] Creando ContenedorHUD en la esquina superior izquierda del Canvas...");
 
-            // Cargar sprites generados
-            Sprite sSemilla = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/Generados/icono_semilla.png");
-            Sprite sCorazonLleno = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/Generados/corazon_lleno.png");
-            Sprite sCorazonVacio = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/Generados/corazon_vacio.png");
+            // Cargar sprites (priorizando los sprites oficiales extraídos en Objetos/)
+            Sprite sSemilla = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/Objetos/semilla_luz.png")
+                              ?? AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/Generados/icono_semilla.png");
+            Sprite sCorazonLleno = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/Objetos/corazon_lleno.png")
+                                   ?? AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/Generados/corazon_lleno.png");
+            Sprite sCorazonMedio = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/Objetos/corazon_medio.png");
+            Sprite sCorazonVacio = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/Objetos/corazon_vacio.png")
+                                   ?? AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/Generados/corazon_vacio.png");
 
             // 1. Contenedor Principal (Arriba Izquierda)
             GameObject goHUD = new GameObject("ContenedorHUD", typeof(RectTransform));
@@ -256,6 +287,7 @@ namespace SemillasDelBosque.UI
             hud.imagenSemilla = imgSemilla;
             hud.imagenesCorazones = corazones;
             hud.spriteCorazonLleno = sCorazonLleno;
+            hud.spriteCorazonMedio = sCorazonMedio;
             hud.spriteCorazonVacio = sCorazonVacio;
             hud.CalcularTotalSemillas();
             hud.ActualizarHUD(forzar: true);
@@ -275,11 +307,16 @@ namespace SemillasDelBosque.UI
                 hud = Undo.AddComponent<HudJuego>(goHUD);
             }
 
-            Sprite sSemilla = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/Generados/icono_semilla.png");
-            Sprite sCorazonLleno = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/Generados/corazon_lleno.png");
-            Sprite sCorazonVacio = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/Generados/corazon_vacio.png");
+            Sprite sSemilla = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/Objetos/semilla_luz.png")
+                              ?? AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/Generados/icono_semilla.png");
+            Sprite sCorazonLleno = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/Objetos/corazon_lleno.png")
+                                   ?? AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/Generados/corazon_lleno.png");
+            Sprite sCorazonMedio = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/Objetos/corazon_medio.png");
+            Sprite sCorazonVacio = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/Objetos/corazon_vacio.png")
+                                   ?? AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/Generados/corazon_vacio.png");
 
             hud.spriteCorazonLleno = sCorazonLleno;
+            hud.spriteCorazonMedio = sCorazonMedio;
             hud.spriteCorazonVacio = sCorazonVacio;
 
             var filaSemilla = goHUD.transform.Find("FilaSemilla");
@@ -315,89 +352,6 @@ namespace SemillasDelBosque.UI
             UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(
                 UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene());
             Debug.Log("[HudJuego] HUD reconfigurado. Guarda la escena con Ctrl+S.");
-        }
-
-        /// <summary>
-        /// Menú de emergencia: reasigna los sprites de corazon_lleno e icono_semilla
-        /// a todos los Image del HUD existente, y marca la escena como modificada.
-        /// Úsalo si los corazones siguen apareciendo como cuadros blancos tras 'Agregar HUD'.
-        /// </summary>
-        [MenuItem("Semillas del Bosque/UI/Reparar sprites HUD")]
-        public static void MenuRepararSpritesHUD()
-        {
-            Sprite sLleno = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/Generados/corazon_lleno.png");
-            Sprite sVacio  = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/Generados/corazon_vacio.png");
-            Sprite sSemilla = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/Generados/icono_semilla.png");
-
-            if (sLleno == null || sVacio == null)
-            {
-                Debug.LogError("[HudJuego] No se encontraron los sprites de corazones en " +
-                               "'Assets/Sprites/Generados/'. Ejecuta primero " +
-                               "'Semillas del Bosque/Arte/Generar sprites'.");
-                return;
-            }
-
-            Canvas canvas = Object.FindAnyObjectByType<Canvas>();
-            if (canvas == null) { Debug.LogError("[HudJuego] No hay Canvas en la escena."); return; }
-
-            Transform hudT = canvas.transform.Find("ContenedorHUD");
-            if (hudT == null)
-            {
-                Debug.LogError("[HudJuego] No se encontró 'ContenedorHUD'. Ejecuta " +
-                               "'Semillas del Bosque/UI/Agregar HUD' primero.");
-                return;
-            }
-
-            // --- Componente HudJuego ---
-            HudJuego hudComp = hudT.GetComponent<HudJuego>();
-            if (hudComp != null)
-            {
-                Undo.RecordObject(hudComp, "Reparar sprites HUD");
-                hudComp.spriteCorazonLleno = sLleno;
-                hudComp.spriteCorazonVacio  = sVacio;
-                EditorUtility.SetDirty(hudComp);
-            }
-
-            // --- Ícono semilla ---
-            Transform filaSemilla = hudT.Find("FilaSemilla");
-            if (filaSemilla != null && sSemilla != null)
-            {
-                Transform icono = filaSemilla.Find("IconoSemilla");
-                if (icono != null)
-                {
-                    Image imgIcono = icono.GetComponent<Image>();
-                    if (imgIcono != null)
-                    {
-                        Undo.RecordObject(imgIcono, "Reparar icono semilla");
-                        imgIcono.sprite = sSemilla;
-                        EditorUtility.SetDirty(imgIcono);
-                    }
-                }
-            }
-
-            // --- Corazones: reasignar sprite en cada Image directamente ---
-            int reparados = 0;
-            Transform filaCorazones = hudT.Find("FilaCorazones");
-            if (filaCorazones != null)
-            {
-                for (int i = 0; i < filaCorazones.childCount; i++)
-                {
-                    Image imgC = filaCorazones.GetChild(i).GetComponent<Image>();
-                    if (imgC != null)
-                    {
-                        Undo.RecordObject(imgC, $"Reparar corazón {i + 1}");
-                        imgC.sprite = sLleno;
-                        EditorUtility.SetDirty(imgC);
-                        reparados++;
-                    }
-                }
-            }
-
-            // Marcar la escena como modificada para que Ctrl+S lo guarde
-            UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(
-                UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene());
-
-            Debug.Log($"[HudJuego] ✓ {reparados} corazón/ones reparados. Guarda con Ctrl+S.");
         }
 #endif
     }
