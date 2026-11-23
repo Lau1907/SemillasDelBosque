@@ -51,6 +51,7 @@ namespace SemillasDelBosque.Editor
             GenerarCorazonLleno();
             GenerarCorazonVacio();
             GenerarIconoSemilla();
+            GenerarIconoLibroCodice();
 
             // 2. Elementos de decoración (props)
             GenerarArbusto();
@@ -68,6 +69,20 @@ namespace SemillasDelBosque.Editor
             GenerarFondoNocheLejanaN3();
             GenerarFondoNocheMediaN3();
             GenerarFondoNocheAguaN3();
+
+            // 5. Fondos Nivel 2 (Bosque Profundo - verde denso con sombra suave)
+            GenerarFondoBosqueProfundoLejanoN2();
+            GenerarFondoBosqueProfundoMedioN2();
+            GenerarFondoBosqueProfundoCercanoN2();
+
+            // 6. Fondos Nivel 4 (Cima de los Recuerdos - atardecer dorado/púrpura y Castillo de Chapultepec)
+            GenerarFondoAtardecerLejanoN4();
+            GenerarFondoCastilloChapultepecMedioN4();
+            GenerarFondoAtardecerCercanoN4();
+            GenerarFondoCastilloLandmarkN4();
+
+            // 7. Logo del Equipo para Splash Screen
+            GenerarLogoEquipo();
 
             AssetDatabase.Refresh();
             Debug.Log("[GeneradorArte] ¡Todos los sprites generados e importados exitosamente con pivot Bottom-Center y clamp vertical!");
@@ -176,6 +191,40 @@ namespace SemillasDelBosque.Editor
             };
 
             DibujarPatron(tex, patron, transparente, borde, oro, brillo, destello);
+            GuardarYConfigurarSprite(tex, nombre, esFondo: false);
+        }
+
+        private static void GenerarIconoLibroCodice()
+        {
+            string nombre = "libro_codice.png";
+            Texture2D tex = new Texture2D(16, 16, TextureFormat.RGBA32, false);
+            Color trans = new Color(0, 0, 0, 0);
+            Color borde = new Color32(45, 25, 15, 255);
+            Color cuero = new Color32(125, 65, 32, 255);
+            Color oro = new Color32(245, 195, 65, 255);
+            Color papel = new Color32(238, 222, 185, 255);
+
+            int[,] patron = new int[16, 16]
+            {
+                {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+                {0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0},
+                {0,1,2,3,3,2,2,2,2,2,2,2,2,1,0,0},
+                {0,1,2,3,2,2,2,3,3,2,2,2,2,1,0,0},
+                {0,1,2,2,2,2,3,4,4,3,2,2,2,1,0,0},
+                {0,1,2,2,2,2,3,4,4,3,2,2,2,1,0,0},
+                {0,1,2,2,2,2,2,3,3,2,2,2,2,1,0,0},
+                {0,1,2,3,2,2,2,2,2,2,2,2,2,1,0,0},
+                {0,1,2,3,3,2,2,2,2,2,2,2,2,1,0,0},
+                {0,1,2,2,2,2,2,2,2,2,2,2,2,1,0,0},
+                {0,1,2,2,2,2,2,2,2,2,2,2,2,1,0,0},
+                {0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0},
+                {0,1,4,4,4,4,4,4,4,4,4,4,4,2,1,0},
+                {0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0},
+                {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+                {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
+            };
+
+            DibujarPatron(tex, patron, trans, borde, cuero, oro, papel);
             GuardarYConfigurarSprite(tex, nombre, esFondo: false);
         }
 
@@ -664,6 +713,328 @@ namespace SemillasDelBosque.Editor
 
             tex.Apply();
             GuardarYConfigurarSprite(tex, nombre, esFondo: true);
+        }
+
+        #endregion
+
+        #region Fondos Nivel 2 (Bosque Profundo - 256x384, Verde Denso y Sombra Suave)
+
+        private static void GenerarFondoBosqueProfundoLejanoN2()
+        {
+            string nombre = "fondo_nivel2_lejana.png";
+            Texture2D tex = new Texture2D(ANCHO_FONDO, ALTO_FONDO, TextureFormat.RGBA32, false);
+            Color32 cieloAlto = new Color32(0x1E, 0x35, 0x29, 0xFF);
+            Color32 cieloHorizonte = new Color32(0x2F, 0x52, 0x3E, 0xFF);
+            Color32 colina = new Color32(0x20, 0x3A, 0x2C, 0xFF);
+
+            for (int x = 0; x < ANCHO_FONDO; x++)
+            {
+                float rad = (float)x / ANCHO_FONDO * Mathf.PI * 2f;
+                int altColina = (int)(110 + Mathf.Sin(rad * 2f) * 18 + Mathf.Cos(rad * 3f) * 8);
+
+                for (int y = 0; y < ALTO_FONDO; y++)
+                {
+                    if (y <= altColina)
+                    {
+                        tex.SetPixel(x, y, colina);
+                    }
+                    else
+                    {
+                        float t = Mathf.Clamp01((float)(y - altColina) / (ALTO_FONDO - altColina));
+                        tex.SetPixel(x, y, Color.Lerp(cieloHorizonte, cieloAlto, t));
+                    }
+                }
+            }
+
+            tex.Apply();
+            GuardarYConfigurarSprite(tex, nombre, esFondo: true);
+        }
+
+        private static void GenerarFondoBosqueProfundoMedioN2()
+        {
+            string nombre = "fondo_nivel2_media.png";
+            Texture2D tex = new Texture2D(ANCHO_FONDO, ALTO_FONDO, TextureFormat.RGBA32, false);
+            Color trans = new Color(0, 0, 0, 0);
+            Color32 basePino = new Color32(0x1B, 0x3B, 0x28, 0xFF);
+            Color32 sombraPino = new Color32(0x11, 0x26, 0x1A, 0xFF);
+            Color32 luzPino = new Color32(0x2D, 0x5A, 0x3E, 0xFF);
+
+            for (int y = 0; y < ALTO_FONDO; y++)
+                for (int x = 0; x < ANCHO_FONDO; x++)
+                    tex.SetPixel(x, y, trans);
+
+            int[] centros = { 16, 48, 80, 112, 144, 176, 208, 240 };
+            int[] alturas = { 285, 310, 275, 320, 290, 315, 280, 305 };
+
+            for (int i = 0; i < centros.Length; i++)
+            {
+                DibujarPinoProcedural(tex, ANCHO_FONDO, ALTO_FONDO, centros[i], alturas[i], basePino, sombraPino, luzPino, niveles: 7, anchoMaximoBase: 28);
+            }
+
+            tex.Apply();
+            GuardarYConfigurarSprite(tex, nombre, esFondo: true);
+        }
+
+        private static void GenerarFondoBosqueProfundoCercanoN2()
+        {
+            string nombre = "fondo_nivel2_cercana.png";
+            Texture2D tex = new Texture2D(ANCHO_FONDO, ALTO_FONDO, TextureFormat.RGBA32, false);
+            Color trans = new Color(0, 0, 0, 0);
+            Color32 tronco = new Color32(0x12, 0x20, 0x17, 0xFF);
+            Color32 basePino = new Color32(0x15, 0x2F, 0x20, 0xFF);
+            Color32 sombraPino = new Color32(0x0C, 0x1D, 0x13, 0xFF);
+            Color32 luzPino = new Color32(0x23, 0x48, 0x31, 0xFF);
+
+            for (int y = 0; y < ALTO_FONDO; y++)
+                for (int x = 0; x < ANCHO_FONDO; x++)
+                    tex.SetPixel(x, y, trans);
+
+            int[] centros = { 28, 92, 156, 220 };
+            int[] alturas = { 355, 372, 360, 368 };
+
+            foreach (int cx in centros)
+            {
+                for (int y = 0; y < 80; y++)
+                    for (int x = cx - 5; x <= cx + 5; x++)
+                        tex.SetPixel((x + ANCHO_FONDO) % ANCHO_FONDO, y, tronco);
+            }
+
+            for (int i = 0; i < centros.Length; i++)
+            {
+                DibujarPinoProcedural(tex, ANCHO_FONDO, ALTO_FONDO, centros[i], alturas[i], basePino, sombraPino, luzPino, niveles: 8, anchoMaximoBase: 38);
+            }
+
+            tex.Apply();
+            GuardarYConfigurarSprite(tex, nombre, esFondo: true);
+        }
+
+        #endregion
+
+        #region Fondos Nivel 4 (Cima de los Recuerdos - Atardecer Dorado/Púrpura y Castillo de Chapultepec)
+
+        private static void GenerarFondoAtardecerLejanoN4()
+        {
+            string nombre = "fondo_nivel4_lejana.png";
+            Texture2D tex = new Texture2D(ANCHO_FONDO, ALTO_FONDO, TextureFormat.RGBA32, false);
+            Color32 purpura = new Color32(0x3B, 0x1E, 0x4B, 0xFF);
+            Color32 magenta = new Color32(0x8E, 0x3B, 0x62, 0xFF);
+            Color32 dorado = new Color32(0xF2, 0xA6, 0x5A, 0xFF);
+            Color32 sol = new Color32(0xFF, 0xE1, 0x8F, 0xFF);
+
+            for (int y = 0; y < ALTO_FONDO; y++)
+            {
+                float t = (float)y / ALTO_FONDO;
+                Color c = t < 0.45f
+                    ? Color.Lerp(dorado, magenta, t / 0.45f)
+                    : Color.Lerp(magenta, purpura, (t - 0.45f) / 0.55f);
+
+                for (int x = 0; x < ANCHO_FONDO; x++)
+                {
+                    tex.SetPixel(x, y, c);
+                }
+            }
+
+            // Sol poniente dorado
+            int solX = 128;
+            int solY = 175;
+            int radio = 28;
+            for (int y = solY - radio; y <= solY + radio; y++)
+            {
+                for (int x = solX - radio; x <= solX + radio; x++)
+                {
+                    if ((x - solX) * (x - solX) + (y - solY) * (y - solY) <= radio * radio)
+                    {
+                        tex.SetPixel(x, y, sol);
+                    }
+                }
+            }
+
+            tex.Apply();
+            GuardarYConfigurarSprite(tex, nombre, esFondo: true);
+        }
+
+        private static void GenerarFondoCastilloChapultepecMedioN4()
+        {
+            string nombre = "fondo_nivel4_media.png";
+            Texture2D tex = new Texture2D(ANCHO_FONDO, ALTO_FONDO, TextureFormat.RGBA32, false);
+            Color trans = new Color(0, 0, 0, 0);
+            Color32 cerro = new Color32(0x2A, 0x17, 0x35, 0xFF);
+            Color32 cerroLuz = new Color32(0x45, 0x24, 0x4E, 0xFF);
+
+            for (int y = 0; y < ALTO_FONDO; y++)
+                for (int x = 0; x < ANCHO_FONDO; x++)
+                    tex.SetPixel(x, y, trans);
+
+            // Colinas suaves de Chapultepec sin repetición del castillo
+            for (int x = 0; x < ANCHO_FONDO; x++)
+            {
+                float rad = (float)x / ANCHO_FONDO * Mathf.PI * 2f;
+                int altCerro = (int)(115 + Mathf.Sin(rad) * 20 + Mathf.Cos(rad * 2f) * 10);
+                for (int y = 0; y <= altCerro; y++)
+                {
+                    tex.SetPixel(x, y, y >= altCerro - 3 ? cerroLuz : cerro);
+                }
+            }
+
+            tex.Apply();
+            GuardarYConfigurarSprite(tex, nombre, esFondo: true);
+        }
+
+        private static void GenerarFondoCastilloLandmarkN4()
+        {
+            string nombre = "fondo_nivel4_castillo.png";
+            Texture2D tex = new Texture2D(ANCHO_FONDO, ALTO_FONDO, TextureFormat.RGBA32, false);
+            Color trans = new Color(0, 0, 0, 0);
+            Color32 cerro = new Color32(0x2A, 0x17, 0x35, 0xFF);
+            Color32 castillo = new Color32(0x1D, 0x0F, 0x26, 0xFF);
+            Color32 ventanaLuz = new Color32(0xFF, 0xC8, 0x6B, 0xFF);
+
+            for (int y = 0; y < ALTO_FONDO; y++)
+                for (int x = 0; x < ANCHO_FONDO; x++)
+                    tex.SetPixel(x, y, trans);
+
+            // Cerro del Chapulín (elevación central)
+            for (int x = 0; x < ANCHO_FONDO; x++)
+            {
+                float dx = Mathf.Abs(x - 128f) / 128f;
+                int altCerro = (int)(135 - dx * dx * 65 + Mathf.Sin(x * 0.08f) * 4);
+                for (int y = 0; y <= altCerro; y++)
+                {
+                    tex.SetPixel(x, y, cerro);
+                }
+            }
+
+            // Silueta del Castillo de Chapultepec en la cima (X: 72..184, Y: 130..238)
+            for (int y = 130; y <= 178; y++)
+                for (int x = 72; x <= 184; x++)
+                    tex.SetPixel(x, y, castillo);
+
+            for (int x = 72; x <= 184; x += 6)
+                for (int y = 179; y <= 185; y++)
+                    for (int k = 0; k < 3 && x + k <= 184; k++)
+                        tex.SetPixel(x + k, y, castillo);
+
+            // Torreón del Caballero Alto
+            for (int y = 179; y <= 228; y++)
+                for (int x = 94; x <= 122; x++)
+                    tex.SetPixel(x, y, castillo);
+            for (int y = 229; y <= 238; y++)
+                for (int x = 104; x <= 112; x++)
+                    tex.SetPixel(x, y, castillo);
+
+            // Cúpula / mirador derecho
+            for (int y = 179; y <= 205; y++)
+                for (int x = 148; x <= 172; x++)
+                    tex.SetPixel(x, y, castillo);
+
+            // Ventanas cálidas iluminadas
+            for (int x = 84; x <= 172; x += 14)
+                for (int y = 148; y <= 160; y++)
+                    for (int k = 0; k < 4; k++)
+                        tex.SetPixel(x + k, y, ventanaLuz);
+
+            for (int y = 195; y <= 212; y++)
+                for (int x = 105; x <= 111; x++)
+                    tex.SetPixel(x, y, ventanaLuz);
+
+            tex.Apply();
+            GuardarYConfigurarSprite(tex, nombre, esFondo: true);
+        }
+
+        private static void GenerarFondoAtardecerCercanoN4()
+        {
+            string nombre = "fondo_nivel4_cercana.png";
+            Texture2D tex = new Texture2D(ANCHO_FONDO, ALTO_FONDO, TextureFormat.RGBA32, false);
+            Color trans = new Color(0, 0, 0, 0);
+            Color32 pinoOscuro = new Color32(0x18, 0x0E, 0x20, 0xFF);
+            Color32 pinoSombra = new Color32(0x10, 0x08, 0x16, 0xFF);
+            Color32 pinoLuz = new Color32(0x3D, 0x20, 0x3B, 0xFF);
+
+            for (int y = 0; y < ALTO_FONDO; y++)
+                for (int x = 0; x < ANCHO_FONDO; x++)
+                    tex.SetPixel(x, y, trans);
+
+            int[] centros = { 18, 72, 188, 238 };
+            int[] alturas = { 280, 240, 245, 290 };
+
+            for (int i = 0; i < centros.Length; i++)
+            {
+                DibujarPinoProcedural(tex, ANCHO_FONDO, ALTO_FONDO, centros[i], alturas[i], pinoOscuro, pinoSombra, pinoLuz, niveles: 6, anchoMaximoBase: 26);
+            }
+
+            tex.Apply();
+            GuardarYConfigurarSprite(tex, nombre, esFondo: true);
+        }
+
+        #endregion
+
+        #region Logo del Equipo
+
+        private static void GenerarLogoEquipo()
+        {
+            string nombre = "logo_equipo.png";
+            int size = 128;
+            Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            Color trans = new Color(0, 0, 0, 0);
+            Color32 fondoCircular = new Color32(0x1B, 0x3B, 0x2B, 0xFF);
+            Color32 bordeDorado = new Color32(0xF5, 0xC4, 0x43, 0xFF);
+            Color32 hojaVerde = new Color32(0x52, 0xB7, 0x88, 0xFF);
+            Color32 semillaOro = new Color32(0xFF, 0xE6, 0x80, 0xFF);
+
+            int c = size / 2;
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float dist = Mathf.Sqrt((x - c) * (x - c) + (y - c) * (y - c));
+                    if (dist <= 58f && dist >= 53f)
+                    {
+                        tex.SetPixel(x, y, bordeDorado);
+                    }
+                    else if (dist < 53f)
+                    {
+                        tex.SetPixel(x, y, fondoCircular);
+                    }
+                    else
+                    {
+                        tex.SetPixel(x, y, trans);
+                    }
+                }
+            }
+
+            // Brote central (hojas + semilla de luz)
+            for (int y = 34; y < 86; y++)
+            {
+                for (int x = c - 3; x <= c + 3; x++)
+                {
+                    tex.SetPixel(x, y, hojaVerde);
+                }
+            }
+            for (int y = 52; y < 82; y++)
+            {
+                int dx = (y - 52);
+                for (int x = 0; x < 18; x++)
+                {
+                    if (Mathf.Abs(x - dx * 0.5f) < 6f)
+                    {
+                        tex.SetPixel(c - 4 - x, y, hojaVerde);
+                        tex.SetPixel(c + 4 + x, y, hojaVerde);
+                    }
+                }
+            }
+            for (int y = 74; y <= 98; y++)
+            {
+                for (int x = c - 12; x <= c + 12; x++)
+                {
+                    if ((x - c) * (x - c) + (y - 86) * (y - 86) <= 130)
+                    {
+                        tex.SetPixel(x, y, semillaOro);
+                    }
+                }
+            }
+
+            tex.Apply();
+            GuardarYConfigurarSprite(tex, nombre, esFondo: false);
         }
 
         #endregion

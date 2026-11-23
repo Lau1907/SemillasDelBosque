@@ -41,6 +41,11 @@ namespace SemillasDelBosque.Nivel3
             }
         }
 
+        private void OnEnable()
+        {
+            ActualizarOrientacion();
+        }
+
         private void Update()
         {
             float paso = velocidad * Time.deltaTime;
@@ -78,7 +83,8 @@ namespace SemillasDelBosque.Nivel3
         {
             if (voltearSprite && spriteRenderer != null)
             {
-                spriteRenderer.flipX = moviendoHaciaDerecha;
+                // El spritesheet de la Sombra mira hacia la derecha por defecto
+                spriteRenderer.flipX = !moviendoHaciaDerecha;
             }
         }
 

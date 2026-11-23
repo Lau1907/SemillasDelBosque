@@ -1,9 +1,11 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using SemillasDelBosque.Sistema;
 
 #if UNITY_EDITOR
 using UnityEditor;
+using UnityEditor.SceneManagement;
 #endif
 
 namespace SemillasDelBosque.Entorno
@@ -67,7 +69,7 @@ namespace SemillasDelBosque.Entorno
 
         private bool EsLuna(Collider2D col)
         {
-            return col.CompareTag("Luna") || col.CompareTag("Jugador") || col.gameObject.name == "Luna";
+            return UtilidadesJugador.EsJugador(col);
         }
 
         public void MostrarGlobo()
@@ -145,7 +147,7 @@ namespace SemillasDelBosque.Entorno
                 consejo = Undo.AddComponent<BuhoConsejo>(buho);
             }
 
-            consejo.mensajeConsejo = "Presiona espacio para saltar. ¡Recoge las semillas de luz!";
+            consejo.mensajeConsejo = "¡Tlazohcamati, Nahui! Presiona espacio para saltar; salta 2 veces sobre una sombra para disiparla.";
 
             // 3. Crear o actualizar el Globo de Diálogo (World Space Canvas)
             Transform globoExistente = buho.transform.Find("GloboDialogo");
@@ -206,12 +208,17 @@ namespace SemillasDelBosque.Entorno
                 goGlobo = globoExistente.gameObject;
                 consejo.objetoGlobo = goGlobo;
                 consejo.textoDialogo = goGlobo.GetComponentInChildren<TextMeshProUGUI>(true);
+                if (consejo.textoDialogo != null)
+                {
+                    consejo.textoDialogo.text = consejo.mensajeConsejo;
+                }
             }
 
             // Desactivar globo para que inicie oculto
             goGlobo.SetActive(false);
 
             EditorUtility.SetDirty(buho);
+            EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
             Selection.activeGameObject = buho;
             Debug.Log("[BuhoConsejo] ¡BuhoSabio configurado correctamente con trigger y globo de diálogo!");
         }

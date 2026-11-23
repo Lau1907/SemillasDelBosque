@@ -1,4 +1,5 @@
 using UnityEngine;
+using SemillasDelBosque.Sistema;
 
 namespace SemillasDelBosque.Nivel3
 {
@@ -59,8 +60,7 @@ namespace SemillasDelBosque.Nivel3
 
         private bool EsElJugador(GameObject go)
         {
-            // Se comprueba tanto el tag "Luna" como "Jugador" y el nombre del GameObject por robustez
-            return go.name == "Luna" || go.tag == "Jugador" || go.tag == "Luna" || go.tag == tagJugador;
+            return UtilidadesJugador.EsJugador(go) || (!string.IsNullOrEmpty(tagJugador) && string.Equals(go.tag, tagJugador, System.StringComparison.Ordinal));
         }
     }
 }

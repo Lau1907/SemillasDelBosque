@@ -1,8 +1,8 @@
 using System.Collections;
-using System.Linq;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
 using SemillasDelBosque.Audio;
+using SemillasDelBosque.Sistema;
 
 namespace SemillasDelBosque.Entorno
 {
@@ -42,7 +42,20 @@ namespace SemillasDelBosque.Entorno
         {
             if (luzGlobal == null)
             {
-                luzGlobal = Object.FindAnyObjectByType<Light2D>();
+                Light2D[] luces = FindObjectsByType<Light2D>();
+                foreach (Light2D l in luces)
+                {
+                    if (l.lightType == Light2D.LightType.Global)
+                    {
+                        luzGlobal = l;
+                        break;
+                    }
+                }
+            }
+
+            if (capasFondo == null || capasFondo.Length == 0)
+            {
+                capasFondo = GetComponentsInChildren<SpriteRenderer>(true);
             }
 
             CalcularTotalSemillas();
@@ -52,18 +65,7 @@ namespace SemillasDelBosque.Entorno
         {
             if (zonaRestaurada) return;
 
-            int semillasActuales = 0;
-            try
-            {
-                if (Unity.VisualScripting.Variables.ActiveScene != null)
-                {
-                    semillasActuales = Unity.VisualScripting.Variables.ActiveScene.Get<int>("semillas");
-                }
-            }
-            catch
-            {
-                return;
-            }
+            int semillasActuales = UtilidadesJugador.LeerVariableEscena("semillas", 0);
 
             // Si se han recogido todas las semillas del nivel
             if (totalSemillas > 0 && semillasActuales >= totalSemillas)
@@ -78,14 +80,7 @@ namespace SemillasDelBosque.Entorno
         /// </summary>
         public void CalcularTotalSemillas()
         {
-            var todas = FindObjectsByType<GameObject>(FindObjectsInactive.Include);
-            totalSemillas = todas.Count(go => go.name.StartsWith("SemillaDeLuz") && go.scene == gameObject.scene);
-
-            if (totalSemillas == 0)
-            {
-                var porTag = GameObject.FindGameObjectsWithTag("Semilla");
-                totalSemillas = porTag.Count(go => go.scene == gameObject.scene);
-            }
+            totalSemillas = UtilidadesJugador.ContarSemillasEnEscena(gameObject.scene);
         }
 
         /// <summary>

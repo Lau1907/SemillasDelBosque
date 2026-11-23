@@ -2,7 +2,8 @@ using UnityEngine;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
-using Unity.VisualScripting;
+using SemillasDelBosque.Editor;
+using SemillasDelBosque.EditorScripts;
 using SemillasDelBosque.Nivel3;
 using System.Collections.Generic;
 
@@ -21,15 +22,22 @@ namespace SemillasDelBosque.EditorTools
         private const string RUTA_PREFAB_SEMILLA = "Assets/Prefabs/SemillaDeLuz.prefab";
         private const string RUTA_PREFAB_SOMBRA = "Assets/Prefabs/SombraEspinosa.prefab";
         private const string RUTA_PREFAB_CHECKPOINT = "Assets/Prefabs/PuntoDeControl.prefab";
-        private const string RUTA_GRAFO_META = "Assets/Graphs/GrafoMeta.asset";
 
         // Parámetro de diseño: altura de salto accesible para Luna (normal y doble salto)
         public const float ALTURA_MAXIMA_SALTO = 2.8f;
 
-        [MenuItem("Semillas del Bosque/2. Construir Nivel 3", false, 2)]
+        [MenuItem("Semillas del Bosque/3b. Construir Nivel 3 (Lago de las Luciernagas)", false, 31)]
         public static void ConstruirNivel()
         {
             Scene escenaActiva = SceneManager.GetActiveScene();
+            if (escenaActiva.path != UtilidadesEditorNiveles.RUTA_ESCENA_NIVEL3 &&
+                System.IO.File.Exists(UtilidadesEditorNiveles.RUTA_ESCENA_NIVEL3))
+            {
+                if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
+                escenaActiva = EditorSceneManager.OpenScene(UtilidadesEditorNiveles.RUTA_ESCENA_NIVEL3, OpenSceneMode.Single);
+            }
+
+            UtilidadesEditorNiveles.RegistrarTagsJugador();
             Debug.Log($"[ConstructorNivel3] Iniciando construcción en la escena: {escenaActiva.name}");
 
             // 1. Validar prefabs y recursos necesarios
@@ -37,7 +45,6 @@ namespace SemillasDelBosque.EditorTools
             GameObject prefabSemilla = AssetDatabase.LoadAssetAtPath<GameObject>(RUTA_PREFAB_SEMILLA);
             GameObject prefabSombra = AssetDatabase.LoadAssetAtPath<GameObject>(RUTA_PREFAB_SOMBRA);
             GameObject prefabCheckpoint = AssetDatabase.LoadAssetAtPath<GameObject>(RUTA_PREFAB_CHECKPOINT);
-            ScriptGraphAsset grafoMeta = AssetDatabase.LoadAssetAtPath<ScriptGraphAsset>(RUTA_GRAFO_META);
 
             if (prefabSuelo == null || prefabSemilla == null || prefabSombra == null || prefabCheckpoint == null)
             {
@@ -91,7 +98,7 @@ namespace SemillasDelBosque.EditorTools
             ConstruirPuntosDeControl(grupoCheckpoints, prefabCheckpoint);
 
             // 10. Colocar la Meta al final
-            ConstruirMeta(grupoMeta, grafoMeta);
+            ConstruirMeta(grupoMeta);
 
             // 11. Paredes invisibles para delimitar el mapa
             ConstruirLimitesMapa(grupoLimites);
@@ -102,7 +109,15 @@ namespace SemillasDelBosque.EditorTools
             // 13. Posicionar a Luna en el inicio del nivel (sobre el primer islote)
             PosicionarJugador();
 
-            // 14. Guardar cambios y marcar la escena como modificada
+            // 14. Asegurar ZonaCaida en Y = -9, entorno, audio, HUD y Build Settings
+            UtilidadesEditorNiveles.AsegurarZonaCaida(grupoLimites, 60f, 200f);
+            ConstructorEntorno.ConstruirEntornoNivel();
+            ConfigurarAudioSombras.EjecutarConfiguracion();
+            UtilidadesEditorNiveles.ConfigurarHUDYAudioUI();
+            ConfiguradorAnimaciones.AplicarEnEscenaActiva();
+            UtilidadesEditorNiveles.AgregarEscenaABuildSettings(UtilidadesEditorNiveles.RUTA_ESCENA_NIVEL3);
+
+            // 15. Guardar cambios y marcar la escena como modificada
             EditorSceneManager.MarkSceneDirty(escenaActiva);
             Debug.Log("[ConstructorNivel3] ¡Construcción del Nivel 3 finalizada exitosamente!");
         }
@@ -120,7 +135,7 @@ namespace SemillasDelBosque.EditorTools
             GameObject obj = GameObject.Find(nombre);
             if (obj != null && obj.transform.parent == null)
             {
-                Object.DestroyImmediate(obj);
+                Undo.DestroyObjectImmediate(obj);
             }
         }
 
@@ -149,24 +164,31 @@ namespace SemillasDelBosque.EditorTools
 
         private static void ConstruirAguaOscura(Transform padre)
         {
-            // Agua oscura debajo de todo el mapa. Cubre desde x = -5 hasta x = 125
+            // Agua oscura debajo de todo el mapa. Cubre desde x = -5 hasta x = 125 (Y = -4.0 a Y = -1.0)
+            // IMPORTANTE: localScale = (1, 1, 1) para que BoxCollider2D.size NO se multiplique y suba por encima de los islotes.
             GameObject agua = new GameObject("AguaOscura_LagoMortal");
-            agua.transform.SetParent(padre);
+            Undo.RegisterCreatedObjectUndo(agua, "Crear AguaOscura_LagoMortal");
+            agua.transform.SetParent(padre, false);
             agua.transform.position = new Vector3(60.0f, -2.5f, 0f);
+            agua.transform.localScale = Vector3.one;
             agua.tag = "Enemigo"; // El grafo de daño de Luna detecta el tag 'Enemigo'
 
-            // Collider trigger para detectar la caída
+            // Collider trigger exacto de 130x3 (borde superior en Y = -1.0, debajo de todos los islotes en Y >= -0.3)
             BoxCollider2D col = agua.AddComponent<BoxCollider2D>();
             col.size = new Vector2(130.0f, 3.0f);
             col.isTrigger = true;
 
-            // Visual: bloque plano de color azul noche profundo
-            SpriteRenderer sr = agua.AddComponent<SpriteRenderer>();
-            sr.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Background.psd") ?? 
-                        Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f), 100);
-            sr.color = new Color(0.04f, 0.09f, 0.18f, 0.92f); // Azul oscuro misterioso
+            // Visual en objeto hijo sin collider para escalar libremente sin alterar el BoxCollider2D
+            GameObject visual = new GameObject("VisualAgua");
+            Undo.RegisterCreatedObjectUndo(visual, "Crear VisualAgua");
+            visual.transform.SetParent(agua.transform, false);
+            visual.transform.localPosition = Vector3.zero;
+            visual.transform.localScale = new Vector3(130.0f, 3.0f, 1.0f);
+
+            SpriteRenderer sr = visual.AddComponent<SpriteRenderer>();
+            sr.sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f), 4f);
+            sr.color = new Color(0.04f, 0.09f, 0.18f, 0.92f);
             sr.sortingOrder = 5;
-            agua.transform.localScale = new Vector3(130.0f, 3.0f, 1.0f);
         }
 
         private static void ConstruirPlataformasMoviles(Transform padre, GameObject prefabSuelo)
@@ -280,32 +302,15 @@ namespace SemillasDelBosque.EditorTools
             }
         }
 
-        private static void ConstruirMeta(Transform padre, ScriptGraphAsset grafoMeta)
+        private static void ConstruirMeta(Transform padre)
         {
-            // La meta no existe como prefab en el proyecto original, se recrea idéntica al Nivel 1
-            GameObject meta = new GameObject("Meta");
-            meta.transform.SetParent(padre);
-            meta.transform.position = new Vector3(117.5f, 2.0f, 0f);
-            meta.tag = "Meta";
-
-            BoxCollider2D col = meta.AddComponent<BoxCollider2D>();
-            col.size = new Vector2(2.0f, 3.0f);
-            col.isTrigger = true;
-
-            // Configurar Variables de Visual Scripting con la referencia al panel
-            Variables vars = meta.AddComponent<Variables>();
-            GameObject panelNivelCompleto = GameObject.Find("PanelNivelCompleto");
-            if (panelNivelCompleto != null)
-            {
-                vars.declarations.Set("panelNivelCompleto", panelNivelCompleto);
-            }
-
-            // Asignar el macro de Visual Scripting
-            if (grafoMeta != null)
-            {
-                ScriptMachine sm = meta.AddComponent<ScriptMachine>();
-                sm.nest.macro = grafoMeta;
-            }
+            // Meta idempotente con GrafoMeta + ControladorMeta hacia Nivel 4 ("Cima de los Recuerdos")
+            UtilidadesEditorNiveles.ConfigurarMetaNivel(
+                padre,
+                new Vector3(117.5f, 2.0f, 0f),
+                nivelActual: 3,
+                nombreSiguienteEscena: "Cima de los Recuerdos",
+                esNivelFinal: false);
         }
 
         private static void ConstruirLimitesMapa(Transform padre)
@@ -351,8 +356,10 @@ namespace SemillasDelBosque.EditorTools
 
             var velocityOverLifetime = ps.velocityOverLifetime;
             velocityOverLifetime.enabled = true;
+            velocityOverLifetime.space = ParticleSystemSimulationSpace.Local;
             velocityOverLifetime.x = new ParticleSystem.MinMaxCurve(-0.2f, 0.2f);
             velocityOverLifetime.y = new ParticleSystem.MinMaxCurve(-0.15f, 0.35f);
+            velocityOverLifetime.z = new ParticleSystem.MinMaxCurve(0f, 0f);
 
             var renderer = luciernagas.GetComponent<ParticleSystemRenderer>();
             renderer.sortingOrder = 10;
@@ -360,27 +367,7 @@ namespace SemillasDelBosque.EditorTools
 
         private static void PosicionarJugador()
         {
-            GameObject luna = GameObject.Find("Luna") ?? GameObject.FindWithTag("Jugador");
-            if (luna != null)
-            {
-                // Posicionar a Luna de pie sobre el primer islote
-                luna.transform.position = new Vector3(2.0f, 0.65f, 0.0f);
-                Debug.Log($"[ConstructorNivel3] Luna posicionada en el inicio: {luna.transform.position}");
-
-                // Restablecer las variables de escena en Visual Scripting si existen
-                GameObject sceneVarsGo = GameObject.Find("VisualScripting SceneVariables");
-                if (sceneVarsGo != null)
-                {
-                    Variables vars = sceneVarsGo.GetComponent<Variables>();
-                    if (vars != null)
-                    {
-                        vars.declarations.Set("ultimoCheckpoint", new Vector3(2.0f, 0.65f, 0.0f));
-                        vars.declarations.Set("semillas", 0);
-                        vars.declarations.Set("vidas", 3);
-                        Debug.Log("[ConstructorNivel3] Variables de escena inicializadas (vidas=3, semillas=0, ultimoCheckpoint=(2, 0.65)).");
-                    }
-                }
-            }
+            UtilidadesEditorNiveles.PosicionarJugadorEInicializarVariables(new Vector3(2.0f, 0.65f, 0.0f), false);
         }
     }
 }

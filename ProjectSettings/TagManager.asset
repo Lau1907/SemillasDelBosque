@@ -13,6 +13,8 @@ TagManager:
   - Suelo
   - Enemigo
   - Meta
+  - Luna
+  - Nahui
   layers:
   - Default
   - TransparentFX

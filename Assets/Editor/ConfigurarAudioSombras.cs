@@ -64,6 +64,7 @@ namespace SemillasDelBosque.EditorScripts
             AudioClip clipPersecucion = CargarAudioClip("musica_persecucion");
             AudioClip clipZonaRestaurada = CargarAudioClip("musica_zona_restaurada");
             AudioClip clipAlertaSombra = CargarAudioClip("sombra");
+            AudioClip clipDano = CargarAudioClip("dano");
 
             // Localizar los sprites de patrulla y persecución
             Sprite spritePatrulla = CargarSprite("Assets/Sprites/SombraEspinosa_spritesheet.png", "SombraEspinosa_spritesheet_0");
@@ -138,13 +139,17 @@ namespace SemillasDelBosque.EditorScripts
 
                 SerializedObject soSombra = new SerializedObject(sombraPersecucion);
                 soSombra.Update();
-                soSombra.FindProperty("distanciaDeteccion").floatValue = 6f;
-                soSombra.FindProperty("distanciaPerdida").floatValue = 9f;
+                soSombra.FindProperty("distanciaDeteccion").floatValue = 4.8f;
+                soSombra.FindProperty("distanciaPerdida").floatValue = 7.0f;
                 soSombra.FindProperty("audioSource").objectReferenceValue = audioSombra;
 
                 if (clipAlertaSombra != null)
                 {
                     soSombra.FindProperty("clipAlerta").objectReferenceValue = clipAlertaSombra;
+                }
+                if (clipDano != null)
+                {
+                    soSombra.FindProperty("clipDano").objectReferenceValue = clipDano;
                 }
                 if (spritePatrulla != null)
                 {

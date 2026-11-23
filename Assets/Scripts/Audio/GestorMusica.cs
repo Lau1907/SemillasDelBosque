@@ -45,8 +45,13 @@ namespace SemillasDelBosque.Audio
         // Bandera para proteger la música victoriosa de zona restaurada
         private bool zonaRestaurada = false;
 
+        // Multiplicador global sincronizado desde GestorJuego (0..1)
+        private float multiplicadorVolumen = 1f;
+
         // Referencia a la corrutina de fundido activa para poder cancelarla si cambia rápido de estado
         private Coroutine corrutinaFundido;
+
+        private float VolumenEfectivo => volumenMaximo * multiplicadorVolumen;
 
         // Propiedades públicas de consulta
         public int SombrasPersiguiendo => sombrasPersiguiendo;
@@ -82,12 +87,33 @@ namespace SemillasDelBosque.Audio
 
         private void Start()
         {
+            if (PlayerPrefs.HasKey("VolMusica"))
+            {
+                multiplicadorVolumen = Mathf.Clamp01(PlayerPrefs.GetFloat("VolMusica", 0.8f));
+            }
+
             // Al arrancar la escena, reproducir música de exploración si no hay otra sonando
             if (musicaExploracion != null && !audioSource.isPlaying)
             {
                 audioSource.clip = musicaExploracion;
-                audioSource.volume = volumenMaximo;
+                audioSource.volume = VolumenEfectivo;
                 audioSource.Play();
+            }
+            else if (audioSource != null && audioSource.isPlaying)
+            {
+                audioSource.volume = VolumenEfectivo;
+            }
+        }
+
+        /// <summary>
+        /// Ajusta el multiplicador de volumen desde GestorJuego (opciones de audio).
+        /// </summary>
+        public void EstablecerMultiplicadorVolumen(float multiplicador)
+        {
+            multiplicadorVolumen = Mathf.Clamp01(multiplicador);
+            if (corrutinaFundido == null && audioSource != null)
+            {
+                audioSource.volume = VolumenEfectivo;
             }
         }
 
@@ -155,7 +181,7 @@ namespace SemillasDelBosque.Audio
             {
                 // Fallback directo si el objeto estuviera inactivo
                 audioSource.clip = nuevoClip;
-                audioSource.volume = volumenMaximo;
+                audioSource.volume = VolumenEfectivo;
                 audioSource.Play();
             }
         }
@@ -187,10 +213,10 @@ namespace SemillasDelBosque.Audio
             while (t < mitadTiempo)
             {
                 t += Time.deltaTime;
-                audioSource.volume = Mathf.Lerp(0f, volumenMaximo, t / mitadTiempo);
+                audioSource.volume = Mathf.Lerp(0f, VolumenEfectivo, t / mitadTiempo);
                 yield return null;
             }
-            audioSource.volume = volumenMaximo;
+            audioSource.volume = VolumenEfectivo;
 
             corrutinaFundido = null;
         }
