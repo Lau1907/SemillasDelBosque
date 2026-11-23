@@ -1,5 +1,7 @@
 using UnityEngine;
+using SemillasDelBosque.Jugador;
 using SemillasDelBosque.Sistema;
+using SemillasDelBosque.UI;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -10,9 +12,10 @@ namespace SemillasDelBosque.Nivel
 {
     /// <summary>
     /// ZonaCaida: Trigger colocado en la parte inferior del nivel.
-    /// Si Luna cae al vacío y toca este trigger, es teletransportada de inmediato
-    /// a la posición guardada en 'ultimoCheckpoint' (de Visual Scripting)
-    /// y se resetea su velocidad a cero para evitar caídas infinitas.
+    /// Si Luna/Nahui cae al vacío y toca este trigger:
+    /// 1. Es teletransportada de inmediato a 'ultimoCheckpoint' y se anula su velocidad.
+    /// 2. Pierde 1 vida completa (2 medios corazones en SistemaVidaJugador), actualizando el HUD.
+    /// 3. Activa invulnerabilidad temporal con parpadeo y dispara Game Over si vidas <= 0.
     /// </summary>
     public class ZonaCaida : MonoBehaviour
     {
@@ -20,7 +23,7 @@ namespace SemillasDelBosque.Nivel
         {
             if (EsLuna(other))
             {
-                ReaparecerJugador(other.gameObject);
+                ProcesarCaida(other.gameObject);
             }
         }
 
@@ -29,7 +32,7 @@ namespace SemillasDelBosque.Nivel
             return UtilidadesJugador.EsJugador(col);
         }
 
-        private void ReaparecerJugador(GameObject luna)
+        private void ProcesarCaida(GameObject luna)
         {
             Vector3 destinoCheckpoint = UtilidadesJugador.LeerVariableEscena("ultimoCheckpoint", Vector3.zero);
             bool checkpointValido = destinoCheckpoint != Vector3.zero;
@@ -56,13 +59,38 @@ namespace SemillasDelBosque.Nivel
 #endif
                 rb.angularVelocity = 0f;
             }
+
+            // 3. Aplicar daño por caída: 1 vida completa (2 medios corazones)
+            SistemaVidaJugador vida = luna.GetComponent<SistemaVidaJugador>();
+            if (vida != null)
+            {
+                vida.RecibirDanioCaidaVacio(2);
+            }
+            else
+            {
+                int vidasActuales = UtilidadesJugador.LeerVariableEscena("vidas", 3);
+                vidasActuales = Mathf.Max(0, vidasActuales - 1);
+                UtilidadesJugador.EscribirVariableEscena("vidas", vidasActuales);
+
+                if (vidasActuales <= 0)
+                {
+                    Time.timeScale = 0f;
+                    GameObject panelGO = GameObject.Find("PanelGameOver");
+                    if (panelGO != null) panelGO.SetActive(true);
+                }
+            }
+
+            // 4. Forzar actualización inmediata del HUD
+            if (HudJuego.Instancia != null)
+            {
+                HudJuego.Instancia.ActualizarHUD(forzar: true);
+            }
         }
 
 #if UNITY_EDITOR
         [MenuItem("Semillas del Bosque/Nivel/Agregar zona de caída")]
         public static void MenuAgregarZonaCaida()
         {
-            // Verificar si ya existe una ZonaCaida en la escena
             GameObject zonaExistente = GameObject.Find("ZonaCaida");
             if (zonaExistente != null)
             {
@@ -76,12 +104,11 @@ namespace SemillasDelBosque.Nivel
             GameObject goZona = new GameObject("ZonaCaida");
             Undo.RegisterCreatedObjectUndo(goZona, "Crear Zona de Caída");
 
-            // Posicionar ampliamente por debajo de las plataformas del nivel 1 (que están entre Y = -3 y 3, X = -2 a 110)
             goZona.transform.position = new Vector3(54f, -9f, 0f);
 
             BoxCollider2D col = goZona.AddComponent<BoxCollider2D>();
             col.isTrigger = true;
-            col.size = new Vector2(200f, 6f); // Cubre todo el ancho del nivel
+            col.size = new Vector2(200f, 6f);
             col.offset = Vector2.zero;
 
             goZona.AddComponent<ZonaCaida>();
@@ -94,4 +121,3 @@ namespace SemillasDelBosque.Nivel
 #endif
     }
 }
-

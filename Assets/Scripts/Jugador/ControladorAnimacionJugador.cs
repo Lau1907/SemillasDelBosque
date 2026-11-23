@@ -10,7 +10,7 @@ namespace SemillasDelBosque.Jugador
     /// 1) Estabiliza la detección de suelo ('enSuelo' y 'saltosRestantes') para evitar que
     ///    OnCollisionExit2D en uniones entre bloques o plataformas móviles bloquee el salto.
     /// 2) Añade Coyote Time y Jump Buffer para que el salto responda siempre con fluidez.
-    /// 3) Sincroniza el Animator y la orientación horizontal (flipX) de Nahui / Luna.
+    /// 3) Sincroniza el Animator, la orientación horizontal (flipX) y los controles táctiles de Nahui / Luna.
     /// </summary>
     [DefaultExecutionOrder(-100)]
     [RequireComponent(typeof(SpriteRenderer))]
@@ -18,6 +18,9 @@ namespace SemillasDelBosque.Jugador
     [RequireComponent(typeof(Rigidbody2D))]
     public class ControladorAnimacionJugador : MonoBehaviour
     {
+        public static float EntradaHorizontalVirtual { get; set; } = 0f;
+        public static bool SaltoVirtualSolicitado { get; set; } = false;
+
         private static readonly int HashVelocidad = Animator.StringToHash("Velocidad");
         private static readonly int HashEnSuelo = Animator.StringToHash("EnSuelo");
         private static readonly int HashDobleSalto = Animator.StringToHash("DobleSaltoActivo");
@@ -61,9 +64,11 @@ namespace SemillasDelBosque.Jugador
             if (cooldownSaltoCSharp > 0f) cooldownSaltoCSharp -= Time.deltaTime;
             if (bufferSaltoRestante > 0f) bufferSaltoRestante -= Time.deltaTime;
 
-            if (Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame)
+            bool teclaEspacio = Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame;
+            if (teclaEspacio || SaltoVirtualSolicitado)
             {
                 bufferSaltoRestante = jumpBufferTime;
+                SaltoVirtualSolicitado = false;
             }
 
             // Re-sincronizar antes de que ScriptMachine.Update() lea 'enSuelo'
@@ -112,7 +117,28 @@ namespace SemillasDelBosque.Jugador
 
         private void LateUpdate()
         {
-            if (rb == null || bufferSaltoRestante <= 0f || cooldownSaltoCSharp > 0f) return;
+            if (rb == null) return;
+
+            // Aplicar movimiento táctil DESPUÉS de Visual Scripting para que el teclado en 0 no lo sobrescriba
+            if (Mathf.Abs(EntradaHorizontalVirtual) > 0.05f)
+            {
+                float velX = EntradaHorizontalVirtual * LeerVelocidad();
+#if UNITY_6000_0_OR_NEWER
+                rb.linearVelocity = new Vector2(velX, rb.linearVelocity.y);
+#else
+                rb.velocity = new Vector2(velX, rb.velocity.y);
+#endif
+                if (spriteRenderer != null)
+                {
+                    spriteRenderer.flipX = velX < 0f;
+                }
+                if (animator != null)
+                {
+                    animator.SetFloat(HashVelocidad, Mathf.Abs(velX));
+                }
+            }
+
+            if (bufferSaltoRestante <= 0f || cooldownSaltoCSharp > 0f) return;
 
 #if UNITY_6000_0_OR_NEWER
             Vector2 vel = rb.linearVelocity;
@@ -189,6 +215,21 @@ namespace SemillasDelBosque.Jugador
                 }
             }
             return false;
+        }
+
+        private float LeerVelocidad()
+        {
+            try
+            {
+                var objVars = Variables.Object(gameObject);
+                if (objVars != null && objVars.IsDefined("velocidad"))
+                {
+                    float v = objVars.Get<float>("velocidad");
+                    if (v > 0.1f) return v;
+                }
+            }
+            catch {}
+            return 5.0f;
         }
 
         private float LeerFuerzaSalto()
