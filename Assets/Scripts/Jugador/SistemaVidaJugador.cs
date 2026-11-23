@@ -151,6 +151,37 @@ namespace SemillasDelBosque.Jugador
             }
         }
 
+        
+        /// <summary>
+        /// Aplica daño por caída al vacío (1 corazón completo = 2 medios corazones).
+        /// Resta 2 medios corazones, sincroniza la variable de escena 'vidas',
+        /// reproduce clipDano, y si la vida llega a 0 activa Game Over.
+        /// Si sobrevive, cancela cualquier invulnerabilidad previa y activa invulnerabilidad temporal con parpadeo.
+        /// </summary>
+        public void RecibirDanioCaidaVacio(int cantidadMedios = 2)
+        {
+            if (derrotado) return;
+
+            mediosCorazonesActuales = Mathf.Max(0, mediosCorazonesActuales - Mathf.Max(1, cantidadMedios));
+            SincronizarVariableVidas();
+
+            if (clipDano != null && audioSource != null)
+            {
+                float vol = GestorJuego.Instancia != null ? GestorJuego.Instancia.VolumenSFX : 1f;
+                audioSource.PlayOneShot(clipDano, vol);
+            }
+
+            if (mediosCorazonesActuales <= 0)
+            {
+                ActivarDerrota();
+            }
+            else
+            {
+                StopAllCoroutines();
+                StartCoroutine(CorrutinaInvulnerabilidad());
+            }
+        }
+
         private void SincronizarVariableVidas()
         {
             int corazonesRedondeados = Mathf.CeilToInt(mediosCorazonesActuales / 2f);
